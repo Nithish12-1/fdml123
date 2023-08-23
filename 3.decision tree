@@ -1,0 +1,92 @@
+import numpy as np
+from collections import Counter
+
+class Node:
+    def __init__(self, label=None, feature=None, children=None):
+        self.label = label
+        self.feature = feature
+        self.children = children if children else {}
+
+def entropy(labels):
+    label_counts = Counter(labels)
+    probs = [count / len(labels) for count in label_counts.values()]
+    return -sum(p * np.log2(p) for p in probs)
+
+def id3(features, labels, depth=0, max_depth=None):
+    if len(set(labels)) == 1:
+        return Node(label=labels[0])
+    
+    if max_depth is not None and depth >= max_depth:
+        label = max(Counter(labels), key=Counter(labels).get)
+        return Node(label=label)
+    
+    if len(features[0]) == 0:
+        label = max(Counter(labels), key=Counter(labels).get)
+        return Node(label=label)
+    
+    best_feature = None
+    best_info_gain = -float('inf')
+    for feature_index in range(len(features[0])):
+        feature_values = [example[feature_index] for example in features]
+        unique_values = set(feature_values)
+        new_entropy = 0
+        for value in unique_values:
+            subset_labels = [labels[i] for i in range(len(labels)) if feature_values[i] == value]
+            new_entropy += len(subset_labels) / len(labels) * entropy(subset_labels)
+        
+        info_gain = entropy(labels) - new_entropy
+        if info_gain > best_info_gain:
+            best_info_gain = info_gain
+            best_feature = feature_index
+    
+    if best_feature is None:
+        label = max(Counter(labels), key=Counter(labels).get)
+        return Node(label=label)
+    
+    feature_values = [example[best_feature] for example in features]
+    unique_values = set(feature_values)
+    
+    children = {}
+    for value in unique_values:
+        subset_indices = [i for i in range(len(features)) if feature_values[i] == value]
+        subset_features = [features[i] for i in subset_indices]
+        subset_labels = [labels[i] for i in subset_indices]
+        children[value] = id3(subset_features, subset_labels, depth + 1, max_depth)
+    
+    return Node(feature=best_feature, children=children)
+
+# Example "Play Tennis" dataset
+features = [
+    ['Sunny', 'Hot', 'High', 'Weak'],
+    ['Sunny', 'Hot', 'High', 'Strong'],
+    ['Overcast', 'Hot', 'High', 'Weak'],
+    ['Rain', 'Mild', 'High', 'Weak'],
+    ['Rain', 'Cool', 'Normal', 'Weak'],
+    ['Rain', 'Cool', 'Normal', 'Strong'],
+    ['Overcast', 'Cool', 'Normal', 'Strong'],
+    ['Sunny', 'Mild', 'High', 'Weak'],
+    ['Sunny', 'Cool', 'Normal', 'Weak'],
+    ['Rain', 'Mild', 'Normal', 'Weak'],
+    ['Sunny', 'Mild', 'Normal', 'Strong'],
+    ['Overcast', 'Mild', 'High', 'Strong'],
+    ['Overcast', 'Hot', 'Normal', 'Weak'],
+    ['Rain', 'Mild', 'High', 'Strong']
+]
+
+labels = ['No', 'No', 'Yes', 'Yes', 'Yes', 'No', 'Yes', 'No', 'Yes', 'Yes', 'Yes', 'Yes', 'Yes', 'No']
+
+# Build the tree
+tree = id3(features, labels)
+
+# Print the tree (This is just a basic representation)
+def print_tree(node, indent=""):
+    if node.label:
+        print(indent + "Label:", node.label)
+    elif node.feature is not None:
+        print(indent + "Feature:", node.feature)
+        for value, child in node.children.items():
+            print(indent + "Value:", value)
+            print_tree(child, indent + "  ")
+
+print_tree(tree)
+
